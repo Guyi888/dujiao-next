@@ -152,13 +152,13 @@ func (s *ReconciliationService) executeReconciliation(ctx context.Context, job *
 	var errorCount int
 
 	for _, po := range procOrders {
-		if po.UpstreamOrderID == 0 {
+		if po.UpstreamOrderID == 0 && strings.TrimSpace(po.UpstreamOrderNo) == "" {
 			skippedCount++
 			continue
 		}
 
 		// 查询上游订单状态
-		upstreamDetail, err := adapter.GetOrder(ctx, po.UpstreamOrderID)
+		upstreamDetail, err := adapter.GetOrder(ctx, po.UpstreamOrderID, po.UpstreamOrderNo)
 		if err != nil {
 			logger.Warnw("reconciliation_get_upstream_order_failed",
 				"job_id", job.ID, "procurement_id", po.ID,
