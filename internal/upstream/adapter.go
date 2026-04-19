@@ -158,6 +158,8 @@ func NewAdapter(conn *models.SiteConnection, uploadsDir string) (Adapter, error)
 	switch conn.Protocol {
 	case constants.ConnectionProtocolDujiaoNext:
 		return NewDujiaoNextAdapter(conn, uploadsDir), nil
+	case constants.ConnectionProtocolCaihong:
+		return NewCaihongAdapter(conn, uploadsDir), nil
 	default:
 		return nil, fmt.Errorf("unsupported protocol: %s", conn.Protocol)
 	}

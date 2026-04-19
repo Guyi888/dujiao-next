@@ -356,6 +356,7 @@ const (
 // 对接协议类型常量
 const (
 	ConnectionProtocolDujiaoNext = "dujiao-next"
+	ConnectionProtocolCaihong    = "caihong" // 彩虹发卡协议
 )
 
 // API 凭证状态常量
