@@ -236,6 +236,7 @@ func (s *ProcurementOrderService) SubmitToUpstream(procurementOrderID uint) erro
 	// 构建上游请求
 	req := upstream.CreateUpstreamOrderReq{
 		SKUID:             skuMapping.UpstreamSKUID,
+		UpstreamSKUCode:   skuMapping.UpstreamSKUCode, // 彩虹协议使用（goodsSN 字符串）
 		Quantity:          item.Quantity,
 		DownstreamOrderNo: localOrder.OrderNo,
 		TraceID:           procOrder.TraceID,
@@ -622,11 +623,12 @@ func (s *ProcurementOrderService) PollUpstreamStatus(procurementOrderID uint) er
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	detail, err := adapter.GetOrder(ctx, procOrder.UpstreamOrderID)
+	detail, err := adapter.GetOrder(ctx, procOrder.UpstreamOrderID, procOrder.UpstreamOrderNo)
 	if err != nil {
 		logger.Warnw("procurement_poll_status_error",
 			"procurement_order_id", procOrder.ID,
 			"upstream_order_id", procOrder.UpstreamOrderID,
+			"upstream_order_no", procOrder.UpstreamOrderNo,
 			"error", err,
 		)
 		// 轮询失败，重新入队
@@ -706,7 +708,8 @@ func (s *ProcurementOrderService) SyncAcceptedOrders() {
 
 	for i := range orders {
 		procOrder := &orders[i]
-		if procOrder.UpstreamOrderID == 0 {
+		// 跳过既没有数字ID也没有字符串单号的记录（彩虹协议只有 UpstreamOrderNo）
+		if procOrder.UpstreamOrderID == 0 && strings.TrimSpace(procOrder.UpstreamOrderNo) == "" {
 			continue
 		}
 
@@ -720,7 +723,7 @@ func (s *ProcurementOrderService) SyncAcceptedOrders() {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		detail, err := adapter.GetOrder(ctx, procOrder.UpstreamOrderID)
+		detail, err := adapter.GetOrder(ctx, procOrder.UpstreamOrderID, procOrder.UpstreamOrderNo)
 		cancel()
 
 		if err != nil {
@@ -990,7 +993,7 @@ func (s *ProcurementOrderService) fillUpstreamRefundRecordsForProcurementOrder(o
 	}
 	order.UpstreamRefundRecords = nil
 	order.UpstreamRefundedAmount = ""
-	if s.connSvc == nil || order.UpstreamOrderID == 0 || !shouldSyncUpstreamRefundStatus(order.Status) {
+	if s.connSvc == nil || (order.UpstreamOrderID == 0 && strings.TrimSpace(order.UpstreamOrderNo) == "") || !shouldSyncUpstreamRefundStatus(order.Status) {
 		return
 	}
 	conn, err := s.connSvc.GetByID(order.ConnectionID)
@@ -1003,7 +1006,7 @@ func (s *ProcurementOrderService) fillUpstreamRefundRecordsForProcurementOrder(o
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
-	detail, err := adapter.GetOrder(ctx, order.UpstreamOrderID)
+	detail, err := adapter.GetOrder(ctx, order.UpstreamOrderID, order.UpstreamOrderNo)
 	if err != nil || detail == nil {
 		return
 	}

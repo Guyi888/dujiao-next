@@ -334,19 +334,19 @@ func (a *CaihongAdapter) GetProduct(ctx context.Context, productID uint) (*Upstr
 }
 
 // CreateOrder 发起采购单
-// goodsSN 从 req.ManualFormData["goods_sn"] 或 SKUCode 获取
+// goodsSN 优先从 req.UpstreamSKUCode 取（SKU映射中存的原始彩虹goodsSN），
+// 其次从 req.ManualFormData["goods_sn"] 取（兼容旧流程）
 func (a *CaihongAdapter) CreateOrder(ctx context.Context, req CreateUpstreamOrderReq) (*CreateUpstreamOrderResp, error) {
-	// 优先从 ManualFormData 取 goodsSN
-	goodsSN := ""
-	if req.ManualFormData != nil {
+	goodsSN := strings.TrimSpace(req.UpstreamSKUCode)
+	if goodsSN == "" && req.ManualFormData != nil {
 		if v, ok := req.ManualFormData["goods_sn"]; ok {
-			goodsSN = fmt.Sprintf("%v", v)
+			goodsSN = strings.TrimSpace(fmt.Sprintf("%v", v))
 		}
 	}
 	if goodsSN == "" {
 		return &CreateUpstreamOrderResp{
 			OK:           false,
-			ErrorMessage: "missing goods_sn in ManualFormData",
+			ErrorMessage: "missing goodsSN: UpstreamSKUCode is empty and ManualFormData has no goods_sn",
 		}, nil
 	}
 
@@ -393,19 +393,15 @@ func (a *CaihongAdapter) CreateOrder(ctx context.Context, req CreateUpstreamOrde
 }
 
 // GetOrder 查询上游订单状态
-// 彩虹侧用 orderSN（字符串）查询，独角Next 传 uint orderID
-// 实际 orderSN 存储在 ProcurementOrder.UpstreamOrderNo 中，
-// 此处通过 OrderNo 字段传入（调用方负责设置）
-func (a *CaihongAdapter) GetOrder(ctx context.Context, orderID uint) (*UpstreamOrderDetail, error) {
-	// 独角Next 标准接口以 uint 查询，彩虹需要 orderSN 字符串
-	// 框架会先查本地 ProcurementOrder 得到 OrderNo，再调用此处
-	// 所以此方法返回 not supported，实际由 GetOrderByNo 处理
-	return nil, fmt.Errorf("caihong: GetOrder by numeric ID not supported; framework should use OrderNo")
-}
+// 彩虹协议用字符串 orderSN 查询，orderNo 参数即为彩虹 orderSN
+// orderID 参数在彩虹协议中不使用
+func (a *CaihongAdapter) GetOrder(ctx context.Context, _ uint, orderNo string) (*UpstreamOrderDetail, error) {
+	orderNo = strings.TrimSpace(orderNo)
+	if orderNo == "" {
+		return nil, fmt.Errorf("caihong get order: orderNo is empty")
+	}
 
-// GetOrderByNo 通过 orderSN 字符串查询彩虹订单（供服务层直接调用）
-func (a *CaihongAdapter) GetOrderByNo(ctx context.Context, orderSN string) (*UpstreamOrderDetail, error) {
-	path := "/api/client/goods/v2/order?orderSN=" + orderSN
+	path := "/api/client/goods/v2/order?orderSN=" + orderNo
 	resp, err := a.doRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("caihong get order: %w", err)

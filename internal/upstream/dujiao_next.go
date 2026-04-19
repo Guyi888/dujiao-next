@@ -107,7 +107,7 @@ func (a *DujiaoNextAdapter) CreateOrder(ctx context.Context, req CreateUpstreamO
 }
 
 // GetOrder 查询上游订单状态
-func (a *DujiaoNextAdapter) GetOrder(ctx context.Context, orderID uint) (*UpstreamOrderDetail, error) {
+func (a *DujiaoNextAdapter) GetOrder(ctx context.Context, orderID uint, _ string) (*UpstreamOrderDetail, error) {
 	path := fmt.Sprintf("/api/v1/upstream/orders/%d", orderID)
 	var result UpstreamOrderDetail
 	if err := a.doRequest(ctx, http.MethodGet, path, nil, &result); err != nil {

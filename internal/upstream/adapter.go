@@ -85,6 +85,7 @@ type UpstreamSKU struct {
 // CreateUpstreamOrderReq 创建上游采购单请求
 type CreateUpstreamOrderReq struct {
 	SKUID             uint        `json:"sku_id"`
+	UpstreamSKUCode   string      `json:"upstream_sku_code,omitempty"` // 上游 SKU 原始编码（字符串型ID，彩虹协议使用）
 	Quantity          int         `json:"quantity"`
 	ManualFormData    models.JSON `json:"manual_form_data,omitempty"`
 	DownstreamOrderNo string      `json:"downstream_order_no"`
@@ -144,7 +145,9 @@ type Adapter interface {
 	CreateOrder(ctx context.Context, req CreateUpstreamOrderReq) (*CreateUpstreamOrderResp, error)
 
 	// GetOrder 查询上游订单状态
-	GetOrder(ctx context.Context, orderID uint) (*UpstreamOrderDetail, error)
+	// orderID: 上游数字订单ID（独角Next协议使用）
+	// orderNo: 上游字符串订单号（彩虹协议使用）
+	GetOrder(ctx context.Context, orderID uint, orderNo string) (*UpstreamOrderDetail, error)
 
 	// CancelOrder 取消采购单
 	CancelOrder(ctx context.Context, orderID uint) error
